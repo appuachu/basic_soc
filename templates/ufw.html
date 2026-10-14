@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}UFW Firewall{% endblock %}
+
+{% block content %}
+
+<!-- ============ HERO ============ -->
+<section class="module-hero">
+    <div class="module-hero-badge">🔥 Module</div>
+    <h1>UFW Firewall</h1>
+    <p>Every command an analyst needs — hover any token for context, click the card for full output and packet simulation.</p>
+</section>
+
+<!-- ============ INTRO ============ -->
+<section class="section">
+    <div class="info-card">
+        <div class="info-card-title">What Is UFW?</div>
+        <p class="lead">{{ intro.what }}</p>
+        <div class="sub-title">Why it matters for SOC analysts</div>
+        <ul class="bullet-list">
+            {% for item in intro.why_soc %}<li>{{ item }}</li>{% endfor %}
+        </ul>
+    </div>
+</section>
+
+<!-- ============ UFW COMMANDS ============ -->
+{% set cat_icons = {
+    'Install': '📦',
+    'Enable': '🚀',
+    'Common Rules': '🔧',
+    'Advanced': '⚡',
+    'Emergency': '🚨'
+} %}
+
+{% set categories = ['Install', 'Enable', 'Common Rules', 'Advanced', 'Emergency'] %}
+
+{% for cat in categories %}
+<section class="section {% if loop.index is even %}dark{% endif %}">
+    <h2 class="section-title">{{ cat_icons[cat] }} {{ cat }}</h2>
+    <div class="cmd-grid">
+        {% for cmd in commands if cmd.category == cat %}
+        <div class="cmd-card" id="card-{{ cmd.id }}"
+             style="border-left-color: {{ cmd.color }};"
+             onclick='openItem("{{ cmd.id }}")'>
+            <div class="cmd-line">
+                {% for tok in cmd.tokens %}
+                    {% if tok.tip %}<span class="tok" data-tip="{{ tok.tip }}">{{ tok.text }}</span>
+                    {% else %}<span class="tok-plain">{{ tok.text }}</span>{% endif %}
+                {% endfor %}
+            </div>
+            <p class="cmd-desc">{{ cmd.desc }}</p>
+
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endfor %}
+
+<!-- ============ IPTABLES SECTION ============ -->
+{% if extra and extra.iptables_intro %}
+<section class="section">
+    <h2 class="section-title">⚙️ iptables — The Foundation Under UFW</h2>
+    <div class="info-card">
+        <p class="lead">{{ extra.iptables_intro.what }}</p>
+        <div class="sub-title">Why learn it</div>
+        <ul class="bullet-list">
+            {% for item in extra.iptables_intro.why_soc %}<li>{{ item }}</li>{% endfor %}
+        </ul>
+    </div>
+</section>
+
+{% if extra.iptables_tables %}
+<section class="section dark">
+    <h2 class="section-title">📊 iptables Tables</h2>
+    <div class="table-grid">
+        {% for t in extra.iptables_tables %}
+        <div class="info-tile">
+            <h4>{{ t.name }}</h4>
+            <p>{{ t.desc }}</p>
+            <p class="tile-meta"><strong>Chains:</strong> {{ t.chains|join(", ") }}</p>
+            <p class="tile-meta"><strong>Use:</strong> {{ t.use }}</p>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+{% if extra.iptables_commands %}
+<section class="section">
+    <h2 class="section-title">🔧 iptables Commands — Click Any Card</h2>
+    <div class="cmd-grid">
+        {% for cmd in extra.iptables_commands %}
+        <div class="cmd-card" id="card-{{ cmd.id }}"
+             style="border-left-color: {{ cmd.color }};"
+             onclick='openItem("{{ cmd.id }}")'>
+            <div class="cmd-line">
+                {% for tok in cmd.tokens %}
+                    {% if tok.tip %}<span class="tok" data-tip="{{ tok.tip }}">{{ tok.text }}</span>
+                    {% else %}<span class="tok-plain">{{ tok.text }}</span>{% endif %}
+                {% endfor %}
+            </div>
+            <p class="cmd-desc">{{ cmd.desc }}</p>
+
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+{% endif %}
+
+<!-- ============ SCENARIOS ============ -->
+<section class="section dark">
+    <h2 class="section-title">🎬 Real Attack Scenarios</h2>
+    {% for sc in scenarios %}
+    <div class="scenario-card" id="{{ sc.id }}" style="border-left: 4px solid {{ sc.color }};">
+        <div class="scenario-header">
+            <span class="scenario-icon">{{ sc.icon }}</span>
+            <h3>{{ sc.title }}</h3>
+        </div>
+        <p class="scenario-situation">{{ sc.situation }}</p>
+
+        <h4 class="scenario-h4">🔍 Detection</h4>
+        <div class="cmd-line">
+            {% for tok in sc.detection_tokens %}
+                {% if tok.tip %}<span class="tok" data-tip="{{ tok.tip }}">{{ tok.text }}</span>
+                {% else %}<span class="tok-plain">{{ tok.text }}</span>{% endif %}
+            {% endfor %}
+        </div>
+        <pre class="output-block">{{ sc.detection_output }}</pre>
+        <p class="scenario-analysis"><strong>Analysis:</strong> {{ sc.analysis }}</p>
+
+        <h4 class="scenario-h4">🛠️ Response</h4>
+        {% for r in sc.response_cmds %}<pre class="output-block">$ {{ r }}</pre>{% endfor %}
+
+        <h4 class="scenario-h4">✅ After Action</h4>
+        <p>{{ sc.post_action }}</p>
+    </div>
+    {% endfor %}
+</section>
+
+<script>
+    // Combine UFW commands and iptables commands into one array
+    window.__ITEMS = [
+        ...{{ commands|tojson }},
+        ...{{ (extra.iptables_commands if extra and extra.iptables_commands else [])|tojson }}
+    ];
+</script>
+{% endblock %}

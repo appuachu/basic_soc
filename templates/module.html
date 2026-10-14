@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}{{ module.title }}{% endblock %}
+
+{% block content %}
+
+<!-- ============ MODAL ============ -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <button class="modal-close" onclick="closeModal({target:{id:'modal'}})">×</button>
+        <div class="modal-header">
+            <h2 id="modalTitle">Command</h2>
+            <p class="modal-subtitle" id="modalSubtitle">Description</p>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+    </div>
+</div>
+
+<section class="hero">
+    <h1>{{ module.icon }} {{ module.title }}</h1>
+    <p>Hover any token for context. Click any card for full details + simulation.</p>
+</section>
+
+<section class="section">
+    <h2 class="section-title">Overview</h2>
+    <div class="info-card">
+        <p class="lead">{{ intro.what }}</p>
+        <h3 class="sub-title">Why it matters for SOC analysts</h3>
+        <ul class="bullet-list">
+            {% for item in intro.why_soc %}<li>{{ item }}</li>{% endfor %}
+        </ul>
+    </div>
+</section>
+
+<section class="section dark">
+    <h2 class="section-title">Commands — Click Any Card</h2>
+    {% set categories = commands | map(attribute='category') | unique | list %}
+    {% for cat in categories %}
+    <h3 class="cat-heading">{{ cat }}</h3>
+    <div class="cmd-grid">
+        {% for cmd in commands if cmd.category == cat %}
+        <div class="cmd-card"
+             id="card-{{ cmd.id }}"
+             style="border-left-color: {{ cmd.color }};"
+             onclick='openModal({{ loop.index0 }}, "ufw")'>
+            <div class="cmd-line">
+                {% for tok in cmd.tokens %}
+                    {% if tok.tip %}
+                        <span class="tok" data-tip="{{ tok.tip }}">{{ tok.text }}</span>
+                    {% else %}
+                        <span class="tok-plain">{{ tok.text }}</span>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            <p class="cmd-desc">{{ cmd.desc }}</p>
+
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</section>
+
+{% if scenarios %}
+<section class="section">
+    <h2 class="section-title">Scenarios</h2>
+    {% for sc in scenarios %}
+    <div class="scenario-card" id="{{ sc.id }}" style="border-left: 4px solid {{ sc.color }};">
+        <div class="scenario-header">
+            <span class="scenario-icon">{{ sc.icon }}</span>
+            <h3>{{ sc.title }}</h3>
+        </div>
+        <p class="scenario-situation">{{ sc.situation }}</p>
+
+        <h4 class="scenario-h4">🔍 Detection</h4>
+        <div class="cmd-line">
+            {% for tok in sc.detection_tokens %}
+                {% if tok.tip %}
+                    <span class="tok" data-tip="{{ tok.tip }}">{{ tok.text }}</span>
+                {% else %}
+                    <span class="tok-plain">{{ tok.text }}</span>
+                {% endif %}
+            {% endfor %}
+        </div>
+        <pre class="output-block">{{ sc.detection_output }}</pre>
+        <p class="scenario-analysis"><strong>Analysis:</strong> {{ sc.analysis }}</p>
+
+        <h4 class="scenario-h4">🛠️ Response</h4>
+        {% for r in sc.response_cmds %}
+        <pre class="output-block">$ {{ r }}</pre>
+        {% endfor %}
+
+        <h4 class="scenario-h4">✅ After Action</h4>
+        <p>{{ sc.post_action }}</p>
+    </div>
+    {% endfor %}
+</section>
+{% endif %}
+
+<script>
+    window.__UFW = {{ commands|tojson }};
+
+    // Auto-open a command modal when arriving from search
+    (function autoOpen() {
+        const params = new URLSearchParams(window.location.search);
+        const openId = params.get('open');
+        if (!openId) return;
+        setTimeout(() => {
+            const idx = window.__UFW.findIndex(c => c.id === openId);
+            if (idx >= 0) {
+                openModal(idx, 'ufw');
+                const el = document.getElementById('card-' + openId);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, 120);
+    })();
+</script>
+{% endblock %}

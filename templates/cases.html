@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}Case Studies{% endblock %}
+
+{% block content %}
+
+<section class="hero">
+    <h1>📁 Case Studies</h1>
+    <p>Five real investigations, told in three acts: What happened → What to do → Try it.</p>
+</section>
+
+<!-- ============ INTRO ============ -->
+<section class="section">
+    <h2 class="section-title">How to Read These</h2>
+    <div class="info-card">
+        <p class="lead">{{ intro.what }}</p>
+        <div class="case-flow-guide">
+            <div class="flow-guide-step">
+                <span class="flow-guide-num">1</span>
+                <div>
+                    <strong>📖 The Story</strong>
+                    <p>What actually happened. Read the narrative first — it puts the commands in context.</p>
+                </div>
+            </div>
+            <div class="flow-guide-step">
+                <span class="flow-guide-num">2</span>
+                <div>
+                    <strong>🧭 The Playbook</strong>
+                    <p>The exact steps an analyst takes. No commands yet — just the plan.</p>
+                </div>
+            </div>
+            <div class="flow-guide-step">
+                <span class="flow-guide-num">3</span>
+                <div>
+                    <strong>💻 Try It</strong>
+                    <p>Now click any command to see what it does, expected output, and the packet/event flow.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ============ CASES ============ -->
+{% for case in extra.cases %}
+<section class="case-section" id="{{ case.id }}">
+
+    <!-- Case header -->
+    <header class="case-header" style="border-left-color: {{ case.color }};">
+        <div class="case-header-icon">{{ case.icon }}</div>
+        <div class="case-header-text">
+            <div class="case-header-meta">
+                <span class="case-number">{{ case.number }}</span>
+                <span class="case-severity severity-{{ case.severity|lower }}">{{ case.severity }}</span>
+            </div>
+            <h2>{{ case.title }}</h2>
+            <div class="case-mitre">
+                {% for m in case.mitre %}<span class="mitre-tag">{{ m }}</span>{% endfor %}
+            </div>
+        </div>
+    </header>
+
+    <!-- ACT 1 — THE STORY -->
+    <div class="case-act">
+        <div class="case-act-label act-story">
+            <span class="act-num">1</span>
+            <span class="act-name">📖 The Story</span>
+        </div>
+        <div class="case-act-body">
+            <h3 class="case-story-headline">{{ case.story.headline }}</h3>
+            {% for p in case.story.paragraphs %}
+            <p class="case-story-paragraph">{{ p }}</p>
+            {% endfor %}
+            <div class="case-cliffhanger">
+                <span class="cliffhanger-icon">❓</span>
+                <p>{{ case.story.cliffhanger }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ACT 2 — THE PLAYBOOK -->
+    <div class="case-act">
+        <div class="case-act-label act-playbook">
+            <span class="act-num">2</span>
+            <span class="act-name">🧭 {{ case.playbook.headline }}</span>
+        </div>
+        <div class="case-act-body">
+            <div class="playbook-grid">
+                {% for step in case.playbook.steps %}
+                <div class="playbook-step">
+                    <span class="playbook-num">{{ step.n }}</span>
+                    <div class="playbook-content">
+                        <strong>{{ step.title }}</strong>
+                        <p>{{ step.detail }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- ACT 3 — TRY IT -->
+    <div class="case-act">
+        <div class="case-act-label act-try">
+            <span class="act-num">3</span>
+            <span class="act-name">💻 Try It — Click any command</span>
+        </div>
+        <div class="case-act-body">
+            <div class="cmd-grid">
+                {% for cmd in case.commands %}
+                <div class="cmd-card" id="card-{{ cmd.id }}"
+                     style="border-left-color: {{ cmd.color }};"
+                     onclick='openCaseItem("{{ case.id }}", "{{ cmd.id }}")'>
+                    <div class="cmd-line">
+                        {% for tok in cmd.tokens %}
+                            {% if tok.tip %}<span class="tok" data-tip="{{ tok.tip }}">{{ tok.text }}</span>
+                            {% else %}<span class="tok-plain">{{ tok.text }}</span>{% endif %}
+                        {% endfor %}
+                    </div>
+                    <p class="cmd-desc">{{ cmd.desc }}</p>
+
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- RESOLUTION -->
+    <div class="case-resolution" style="border-left-color: {{ case.color }};">
+        <h3>{{ case.resolution.headline }}</h3>
+        <p class="case-resolution-summary">{{ case.resolution.summary }}</p>
+        <div class="case-resolution-block">
+            <strong>Root cause:</strong> {{ case.resolution.root_cause }}
+        </div>
+        <div class="case-resolution-block">
+            <strong>Fixes deployed:</strong>
+            <ul>
+                {% for f in case.resolution.fixes %}<li>{{ f }}</li>{% endfor %}
+            </ul>
+        </div>
+    </div>
+
+</section>
+{% endfor %}
+
+<script>
+    // Build a flat lookup of every command in every case so the modal can find them
+    window.__CASES = {{ extra.cases|tojson }};
+    window.__ITEMS = [];
+    window.__CASES.forEach(c => {
+        c.commands.forEach(cmd => window.__ITEMS.push(cmd));
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Attack & Defend{% endblock %}
+
+{% block content %}
+
+<section class="module-hero">
+    <span class="module-hero-badge">Red Team vs Blue Team</span>
+    <h1>⚔️ Attack &amp; Defend</h1>
+    <p class="module-hero-subtitle">
+        Every scenario shows the same incident twice: first from the attacker's keyboard, then from the SOC's response.
+        See the exact commands each side runs — and what the other side could have detected.
+    </p>
+</section>
+
+<section class="intro-card">
+    <h2>📖 </h2>
+    <p class="lead">{{ intro.what }}</p>
+    <h3>Why it matters for SOC analysts</h3>
+    <ul class="bullet-list">
+        {% for item in intro.why_soc %}<li>{{ item }}</li>{% endfor %}
+    </ul>
+</section>
+
+{% for attack in extra.attacks %}
+<section class="atk-section" id="{{ attack.id }}">
+
+    <!-- ============ SCENARIO HEADER ============ -->
+    <div class="atk-header" style="border-left-color: {{ attack.color }};">
+        <div class="atk-header-icon">{{ attack.icon }}</div>
+        <div class="atk-header-body">
+            <div class="atk-header-meta">
+                <span class="atk-severity severity-{{ attack.severity|lower }}">{{ attack.severity }}</span>
+                <span class="atk-duration">{{ attack.duration }}</span>
+            </div>
+            <h2>{{ attack.title }}</h2>
+            <p class="atk-target"><strong>Target:</strong> {{ attack.target }}</p>
+            <p class="atk-summary">{{ attack.summary }}</p>
+        </div>
+    </div>
+
+    <!-- ============ ATTACK SIDE ============ -->
+    <div class="atk-side atk-side-red">
+        <div class="atk-side-label">
+            <span class="atk-side-icon">🔴</span>
+            <span>Attacker's View — What the attacker did</span>
+        </div>
+
+        {% for step in attack.attack_chain %}
+        <div class="atk-step">
+            <div class="atk-step-header">
+                <span class="atk-step-icon">{{ step.icon }}</span>
+                <span class="atk-step-phase">{{ step.phase }}</span>
+            </div>
+            <p class="atk-step-desc">{{ step.desc }}</p>
+
+            <div class="atk-cmd-label">Command executed:</div>
+            <div class="cmd-line">
+                <span class="tok-plain">$</span>
+                {% for tok in step.tokens %}
+                    {% if tok.tip %}<span class="tok" data-tip="{{ tok.tip }}">{{ tok.text }}</span>
+                    {% else %}<span class="tok-plain">{{ tok.text }}</span>{% endif %}
+                {% endfor %}
+            </div>
+
+            <div class="atk-cmd-label">Output:</div>
+            <pre class="output-block">{{ step.output }}</pre>
+
+            <div class="atk-why">
+                <strong>Why this works:</strong> {{ step.why }}
+            </div>
+            <div class="atk-detect-hint">
+                <strong>🚨 Detection opportunity:</strong> {{ step.detection_hint }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- ============ DEFEND SIDE ============ -->
+    <div class="atk-side atk-side-blue">
+        <div class="atk-side-label">
+            <span class="atk-side-icon">🔵</span>
+            <span>SOC's View — How the defenders responded</span>
+        </div>
+
+        {% for step in attack.defense_chain %}
+        <div class="dfn-step">
+            <div class="dfn-step-header">
+                <span class="dfn-step-icon">{{ step.icon }}</span>
+                <span class="dfn-step-phase">{{ step.phase }}</span>
+                <span class="dfn-step-who">{{ step.who }}</span>
+            </div>
+            <p class="dfn-step-desc">{{ step.desc }}</p>
+
+            <div class="dfn-cmd-label">Command executed:</div>
+            <div class="cmd-line">
+                <span class="tok-plain">$</span>
+                {% for tok in step.tokens %}
+                    {% if tok.tip %}<span class="tok" data-tip="{{ tok.tip }}">{{ tok.text }}</span>
+                    {% else %}<span class="tok-plain">{{ tok.text }}</span>{% endif %}
+                {% endfor %}
+            </div>
+
+            <div class="dfn-cmd-label">Output:</div>
+            <pre class="output-block">{{ step.output }}</pre>
+
+            <div class="dfn-why">
+                <strong>Why this response:</strong> {{ step.why }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- ============ IMPACT SUMMARY ============ -->
+    <div class="atk-impact">
+        <h3>📊 After-Action Report</h3>
+        <div class="atk-impact-grid">
+            <div class="atk-impact-item">
+                <span class="atk-impact-label">Data Leaked</span>
+                <span class="atk-impact-value">{{ attack.impact.what_was_leaked }}</span>
+            </div>
+            <div class="atk-impact-item">
+                <span class="atk-impact-label">Downtime</span>
+                <span class="atk-impact-value">{{ attack.impact.downtime }}</span>
+            </div>
+            <div class="atk-impact-item">
+                <span class="atk-impact-label">Estimated Cost</span>
+                <span class="atk-impact-value">{{ attack.impact.cost }}</span>
+            </div>
+        </div>
+        <div class="atk-impact-block">
+            <strong>Root cause:</strong> {{ attack.impact.root_cause }}
+        </div>
+        <div class="atk-impact-block">
+            <strong>Fixes deployed:</strong>
+            <ul>
+                {% for f in attack.impact.fixes %}<li>{{ f }}</li>{% endfor %}
+            </ul>
+        </div>
+    </div>
+
+</section>
+{% endfor %}
+
+{% endblock %}

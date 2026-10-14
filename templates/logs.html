@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Logs Basics{% endblock %}
+
+{% block content %}
+
+<section class="module-hero">
+    <div class="module-hero-badge">📜 Module</div>
+    <h1>Logs Basics</h1>
+    <p>What logs are, why they matter, and how to read them on Linux and Windows.</p>
+</section>
+
+<section class="section">
+    <div class="info-card">
+        <div class="info-card-title">What Is a Log?</div>
+        <p class="lead">{{ intro.what }}</p>
+        <div class="sub-title">Why it matters for SOC analysts</div>
+        <ul class="bullet-list">
+            {% for item in intro.why_soc %}<li>{{ item }}</li>{% endfor %}
+        </ul>
+    </div>
+</section>
+
+<section class="section dark">
+    <h2 class="section-title">Anatomy of a Log Line</h2>
+    <div class="info-card">
+        <p class="lead">Every log line has the same four parts. Learn them once, read every log forever.</p>
+<pre class="output-block">Jan 15 14:23:45  server  sshd[1234]:  Failed password for invalid user admin from 203.0.113.5
+─────────────    ────    ──────────    ────────────────────────────────────────────────────
+1. Timestamp     2.Host  3. Source      4. Event message</pre>
+        <div class="table-grid" style="margin-top: 16px;">
+            <div class="info-tile"><h4>1. Timestamp</h4><p>When did it happen? Check UTC vs local.</p></div>
+            <div class="info-tile"><h4>2. Host</h4><p>Which machine logged it? Essential in central logging.</p></div>
+            <div class="info-tile"><h4>3. Source</h4><p>Which process? Includes PID: <code>sshd[1234]</code>.</p></div>
+            <div class="info-tile"><h4>4. Message</h4><p>The actual event — where the signal lives.</p></div>
+        </div>
+    </div>
+</section>
+
+{% if extra and extra.log_types %}
+<section class="section">
+    <h2 class="section-title">📚 Types of Logs</h2>
+    <p class="section-desc">Every SOC deals with these six categories. Knowing which is which tells you where to look first.</p>
+    <div class="table-grid">
+        {% for lt in extra.log_types %}
+        <div class="info-tile" style="border-left: 4px solid {{ lt.color }};">
+            <h4>{{ lt.icon }} {{ lt.name }}</h4>
+            <p>{{ lt.desc }}</p>
+            <p class="tile-meta"><strong>Examples:</strong> {{ lt.examples }}</p>
+            <p class="tile-meta"><strong>Why it matters:</strong> {{ lt.why }}</p>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<section class="section dark">
+    <h2 class="section-title">🗂️ Where Logs Live</h2>
+    <div class="table-grid">
+        <div class="info-tile">
+            <h4>🐧 Linux</h4>
+            <p>All logs live under <code>/var/log/</code></p>
+            <p class="tile-meta"><strong>System:</strong> <code>syslog</code>, <code>messages</code>, <code>kern.log</code></p>
+            <p class="tile-meta"><strong>Auth:</strong> <code>auth.log</code> (Debian), <code>secure</code> (RHEL)</p>
+            <p class="tile-meta"><strong>Web:</strong> <code>apache2/</code>, <code>nginx/</code></p>
+            <p class="tile-meta"><strong>Binary:</strong> <code>wtmp</code>, <code>btmp</code>, <code>lastlog</code></p>
+        </div>
+        <div class="info-tile">
+            <h4>🪟 Windows</h4>
+            <p>Event logs live in <code>C:\Windows\System32\winevt\Logs\</code></p>
+            <p class="tile-meta"><strong>System:</strong> <code>System.evtx</code></p>
+            <p class="tile-meta"><strong>Application:</strong> <code>Application.evtx</code></p>
+            <p class="tile-meta"><strong>Security:</strong> <code>Security.evtx</code></p>
+            <p class="tile-meta"><strong>Sysmon:</strong> <code>Microsoft-Windows-Sysmon/Operational.evtx</code></p>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <h2 class="section-title">🐧 Linux — Click Any Card</h2>
+    {% set linux_cats = ['Linux — Authentication', 'Linux — System', 'Linux — Security', 'Linux — Web / DB'] %}
+    {% for cat in linux_cats %}
+    <h3 class="cat-heading">{{ cat }}</h3>
+    <div class="cmd-grid">
+        {% for cmd in commands if cmd.category == cat %}
+        <div class="cmd-card" id="card-{{ cmd.id }}"
+             style="border-left-color: {{ cmd.color }};"
+             onclick='openItem("{{ cmd.id }}")'>
+            <div class="cmd-line">
+                {% for tok in cmd.tokens %}
+                    {% if tok.tip %}<span class="tok" data-tip="{{ tok.tip }}">{{ tok.text }}</span>
+                    {% else %}<span class="tok-plain">{{ tok.text }}</span>{% endif %}
+                {% endfor %}
+            </div>
+            <p class="cmd-desc">{{ cmd.desc }}</p>
+
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</section>
+
+<section class="section dark">
+    <h2 class="section-title">🪟 Windows — Click Any Card</h2>
+    {% set win_cats = ['Windows — Event Viewer', 'Windows — Sysmon', 'Windows — System'] %}
+    {% for cat in win_cats %}
+    <h3 class="cat-heading">{{ cat }}</h3>
+    <div class="cmd-grid">
+        {% for cmd in commands if cmd.category == cat %}
+        <div class="cmd-card" id="card-{{ cmd.id }}"
+             style="border-left-color: {{ cmd.color }};"
+             onclick='openItem("{{ cmd.id }}")'>
+            <div class="cmd-line">
+                {% for tok in cmd.tokens %}
+                    {% if tok.tip %}<span class="tok" data-tip="{{ tok.tip }}">{{ tok.text }}</span>
+                    {% else %}<span class="tok-plain">{{ tok.text }}</span>{% endif %}
+                {% endfor %}
+            </div>
+            <p class="cmd-desc">{{ cmd.desc }}</p>
+
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</section>
+
+<section class="section">
+    <h2 class="section-title">🎬 Real Attack Scenarios</h2>
+    {% for sc in scenarios %}
+    <div class="scenario-card" id="{{ sc.id }}" style="border-left: 4px solid {{ sc.color }};">
+        <div class="scenario-header">
+            <span class="scenario-icon">{{ sc.icon }}</span>
+            <h3>{{ sc.title }}</h3>
+        </div>
+        <p class="scenario-situation">{{ sc.situation }}</p>
+
+        <h4 class="scenario-h4">🔍 Detection</h4>
+        <div class="cmd-line">
+            {% for tok in sc.detection_tokens %}
+                {% if tok.tip %}<span class="tok" data-tip="{{ tok.tip }}">{{ tok.text }}</span>
+                {% else %}<span class="tok-plain">{{ tok.text }}</span>{% endif %}
+            {% endfor %}
+        </div>
+        <pre class="output-block">{{ sc.detection_output }}</pre>
+        <p class="scenario-analysis"><strong>Analysis:</strong> {{ sc.analysis }}</p>
+
+        <h4 class="scenario-h4">🛠️ Response</h4>
+        {% for r in sc.response_cmds %}<pre class="output-block">$ {{ r }}</pre>{% endfor %}
+
+        <h4 class="scenario-h4">✅ After Action</h4>
+        <p>{{ sc.post_action }}</p>
+    </div>
+    {% endfor %}
+</section>
+
+<script>
+    window.__ITEMS = {{ commands|tojson }};
+</script>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}SOC Learning Platform{% endblock %}
+
+{% block content %}
+
+<!-- ============ HERO ============ -->
+<section class="soc-hero">
+    <div class="soc-hero-badge">🎓 Interactive Learning Platform</div>
+    <h1 class="soc-hero-title">
+        Master <span class="soc-gradient">SOC &amp; Cybersecurity</span><br>
+        Through Visual Learning By Aswan
+    </h1>
+    <p class="soc-hero-subtitle">
+        From UFW firewalls to Linux log forensics, from Windows Event IDs to Splunk investigations —
+        learn every SOC tool with interactive simulations, real commands, and hands-on examples.
+    </p>
+    <div class="soc-hero-cta">
+        <a href="#modules" class="soc-btn soc-btn-primary">🚀 Start Learning</a>
+        <a href="/module/ufw" class="soc-btn soc-btn-secondary">🔥 Try UFW Module</a>
+    </div>
+    <div class="soc-hero-stats">
+        <div class="soc-stat">
+            <span class="soc-stat-num">{{ modules|length }}</span>
+            <span class="soc-stat-label">Modules</span>
+        </div>
+        <div class="soc-stat">
+            <span class="soc-stat-num">80+</span>
+            <span class="soc-stat-label">Real Commands</span>
+        </div>
+        <div class="soc-stat">
+            <span class="soc-stat-num">150+</span>
+            <span class="soc-stat-label">Simulations</span>
+        </div>
+        <div class="soc-stat">
+            <span class="soc-stat-num">100%</span>
+            <span class="soc-stat-label">Free &amp; Interactive</span>
+        </div>
+    </div>
+</section>
+
+
+{% endblock %}

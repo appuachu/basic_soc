@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Search: {{ query }}{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <h1>Search Results</h1>
+    <p>{{ results|length }} match{{ 'es' if results|length != 1 else '' }} for "<strong>{{ query }}</strong>"</p>
+</section>
+
+{% if results %}
+    <div class="results-list">
+        {% for r in results %}
+        <a href="{{ r.link }}" class="result-card" style="border-left: 4px solid {{ r.color }};">
+            <div class="result-header">
+                <span class="result-type">{{ r.icon }} {{ r.type }}</span>
+                <span class="result-open">Open →</span>
+            </div>
+            <h3 class="result-title">{{ r.title }}</h3>
+            <p class="result-body">{{ r.body }}</p>
+        </a>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="info-card">
+        <h3>No matches</h3>
+        <p>Try searching for: <code>ufw</code>, <code>iptables</code>, <code>awk</code>, <code>4625</code>, <code>sysmon</code>, <code>auth.log</code>.</p>
+    </div>
+{% endif %}
+{% endblock %}

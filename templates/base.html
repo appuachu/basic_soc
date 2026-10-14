@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SOC Learning Platform{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-inner">
+            <a href="/" class="logo">🛡️ <span>SOC</span>Learn</a>
+
+            <form class="nav-search" action="/search" method="GET">
+                <span class="search-icon">🔎</span>
+                <input type="text"
+                       name="q"
+                       placeholder="Search commands, scenarios, glossary..."
+                       value="{{ request.args.get('q','') }}"
+                       autocomplete="off">
+                <button type="submit">Search</button>
+            </form>
+
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/module/ufw">UFW</a></li>
+                <li><a href="/module/powershell">PowerShell</a></li>
+
+                <li class="nav-dropdown">
+                    <a href="#" class="dropdown-toggle" onclick="toggleNavDropdown(event)">
+                        📜 Logs <span class="dropdown-arrow">▼</span>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <a href="/module/logs" class="dropdown-link">
+                                <span class="dd-icon">📖</span>
+                                <span>
+                                    <strong>Logs Basics</strong>
+                                    <small>What logs are, types, where they live</small>
+                                </span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/module/linux_logs" class="dropdown-link">
+                                <span class="dd-icon">🐧</span>
+                                <span>
+                                    <strong>Linux Log Analysis</strong>
+                                    <small>auth.log, syslog, journalctl, attack detection</small>
+                                </span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/module/windows" class="dropdown-link">
+                                <span class="dd-icon">🪟</span>
+                                <span>
+                                    <strong>Windows Log Analysis</strong>
+                                    <small>Event Viewer, wevtutil, Sysmon, WiFi recovery</small>
+                                </span>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+
+
+
+                <li class="nav-dropdown">
+                    <a href="#" class="dropdown-toggle" onclick="toggleNavDropdown(event)">
+                        ⚔️ Case Studies <span class="dropdown-arrow">▼</span>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <a href="/module/cases" class="dropdown-link">
+                                <span class="dd-icon">📁</span>
+                                <span>
+                                    <strong>Case Studies</strong>
+                                    <small>5 real investigations — story → playbook → try</small>
+                                </span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/module/attack_defend" class="dropdown-link">
+                                <span class="dd-icon">⚔️</span>
+                                <span>
+                                    <strong>Attack &amp; Defend</strong>
+                                    <small>Red team vs blue team — same incident both sides</small>
+                                </span>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        <p>SOC Learning Platform</p>
+    </footer>
+
+    <!-- ============ SHARED MODAL ============ -->
+    <div class="modal-overlay" id="modal" onclick="closeModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <button class="modal-close" onclick="closeModal({target:{id:'modal'}})">×</button>
+            <div class="modal-header">
+                <h2 id="modalTitle">Command</h2>
+                <p class="modal-subtitle" id="modalSubtitle">Description</p>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
+
+    <!-- ============ GLOBAL TOOLTIP (JS-positioned) ============ -->
+    <div id="global-tooltip" role="tooltip" aria-hidden="true"></div>
+
+    <!-- ============ SHARED JS ============ -->
+    <script>
+        /* ============================================================
+           MODULE STATE + HELPERS
+           ============================================================ */
+        window.__ITEMS = window.__ITEMS || [];
+        window.__SIM = null;
+
+        function escapeHtml(s) {
+            if (s == null) return '';
+            return String(s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        /* ============================================================
+           MODAL
+           ============================================================ */
+        function openItem(id) {
+            const data = window.__ITEMS.find(c => c.id === id);
+            if (!data) return console.warn('Item not found:', id);
+            openModalGeneric(data);
+        }
+
+        function openCaseItem(caseId, cmdId) {
+            const cmd = window.__ITEMS.find(c => c.id === cmdId);
+            if (cmd) openModalGeneric(cmd);
+        }
+
+        function openModalGeneric(data) {
+            const modal = document.getElementById('modal');
+            const body = document.getElementById('modalBody');
+
+            document.getElementById('modalTitle').textContent = data.cmd;
+            document.getElementById('modalSubtitle').textContent = data.desc;
+
+            let simHtml = '';
+            if (data.simulation && data.simulation.length) {
+                simHtml = `
+                    <h3 class="modal-h3">🎬 Simulation</h3>
+                    <div class="sim-player" id="simPlayer"></div>
+                    <div class="sim-controls">
+                        <button id="simPlay" class="sim-btn">▶ Play</button>
+                        <button id="simReset" class="sim-btn sim-reset">↺ Reset</button>
+                    </div>
+                `;
+            }
+
+            body.innerHTML = `
+                <div class="modal-section">
+                    <h3 class="modal-h3">💻 Command</h3>
+                    <pre class="cmd-block">$ ${escapeHtml(data.cmd)}</pre>
+                </div>
+                <div class="modal-section">
+                    <h3 class="modal-h3">🎯 What it does</h3>
+                    <p>${escapeHtml(data.desc)}</p>
+                </div>
+                <div class="modal-section">
+                    <h3 class="modal-h3">🌍 Real-World Scenario</h3>
+                    <p class="scenario-text">${escapeHtml(data.scenario || '')}</p>
+                </div>
+                <div class="modal-section">
+                    <h3 class="modal-h3">📄 Expected Output</h3>
+                    <pre class="output-block">${escapeHtml(data.output || '')}</pre>
+                </div>
+                <div class="modal-section">${simHtml}</div>
+            `;
+
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+
+            if (data.simulation && data.simulation.length) {
+                window.__SIM = { steps: data.simulation, index: 0, timer: null };
+                renderSim();
+                document.getElementById('simPlay').addEventListener('click', playSim);
+                document.getElementById('simReset').addEventListener('click', resetSim);
+            }
+        }
+
+        function renderSim() {
+            const sim = window.__SIM;
+            const el = document.getElementById('simPlayer');
+            if (!el || !sim) return;
+            const step = sim.steps[sim.index];
+            el.innerHTML = `
+                <div class="sim-stage">
+                    <div class="sim-side">
+                        <div class="sim-icon">📤</div>
+                        <div class="sim-label">${escapeHtml(step.from)}</div>
+                    </div>
+                    <div class="sim-mid">
+                        <div class="sim-packet" style="border-color:${step.color}; color:${step.color}">
+                            ${escapeHtml(step.data)}
+                        </div>
+                        <div class="sim-caption">
+                            <strong>${escapeHtml(step.title)}</strong> — ${escapeHtml(step.desc)}
+                        </div>
+                        <div class="sim-progress">Step ${sim.index + 1} / ${sim.steps.length}</div>
+                    </div>
+                    <div class="sim-side">
+                        <div class="sim-icon">📥</div>
+                        <div class="sim-label">${escapeHtml(step.to)}</div>
+                    </div>
+                </div>
+                <div class="sim-dots">
+                    ${sim.steps.map((_, i) =>
+                        `<span class="sim-dot ${i <= sim.index ? 'active' : ''}"></span>`
+                    ).join('')}
+                </div>
+            `;
+        }
+
+        function playSim() {
+            const sim = window.__SIM;
+            const btn = document.getElementById('simPlay');
+            if (!sim || !btn) return;
+            if (sim.timer) {
+                clearInterval(sim.timer);
+                sim.timer = null;
+                btn.textContent = '▶ Resume';
+                return;
+            }
+            btn.textContent = '⏸ Pause';
+            sim.timer = setInterval(() => {
+                sim.index++;
+                if (sim.index >= sim.steps.length) {
+                    clearInterval(sim.timer);
+                    sim.timer = null;
+                    sim.index = sim.steps.length - 1;
+                    renderSim();
+                    btn.textContent = '▶ Replay';
+                    return;
+                }
+                renderSim();
+            }, 1800);
+        }
+
+        function resetSim() {
+            const sim = window.__SIM;
+            if (!sim) return;
+            if (sim.timer) clearInterval(sim.timer);
+            sim.timer = null;
+            sim.index = 0;
+            renderSim();
+            const btn = document.getElementById('simPlay');
+            if (btn) btn.textContent = '▶ Play';
+        }
+
+        function closeModal(e) {
+            if (e && e.target.id !== 'modal') return;
+            const modal = document.getElementById('modal');
+            if (modal) modal.classList.remove('active');
+            document.body.style.overflow = '';
+            if (window.__SIM && window.__SIM.timer) clearInterval(window.__SIM.timer);
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') closeModal({ target: { id: 'modal' } });
+        });
+
+        /* ============================================================
+           AUTO-OPEN FROM SEARCH (?open=log_5)
+           ============================================================ */
+        window.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const openId = params.get('open');
+            if (!openId) return;
+            setTimeout(() => {
+                openItem(openId);
+                const el = document.getElementById('card-' + openId);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 120);
+        });
+
+        /* ============================================================
+           NAV DROPDOWN
+           ============================================================ */
+        function toggleNavDropdown(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            const parent = event.currentTarget.closest('.nav-dropdown');
+            document.querySelectorAll('.nav-dropdown.open').forEach(el => {
+                if (el !== parent) el.classList.remove('open');
+            });
+            parent.classList.toggle('open');
+        }
+
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.nav-dropdown.open').forEach(el => el.classList.remove('open'));
+        });
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.nav-dropdown.open').forEach(el => el.classList.remove('open'));
+            }
+        });
+
+        // Highlight the active dropdown's toggle if we're inside one of its modules
+        window.addEventListener('DOMContentLoaded', () => {
+            const path = window.location.pathname;
+            const logModules = ['/module/logs', '/module/linux_logs', '/module/windows'];
+            const labModules = ['/module/cases', '/module/attack_defend'];
+
+            const toggles = document.querySelectorAll('.nav-dropdown .dropdown-toggle');
+
+            if (logModules.includes(path) && toggles[0]) {
+                toggles[0].style.color = 'var(--accent)';
+            }
+            if (labModules.includes(path) && toggles[1]) {
+                toggles[1].style.color = 'var(--accent)';
+            }
+        });
+
+        /* ============================================================
+           GLOBAL TOOLTIP — JS-positioned, viewport-aware
+           ============================================================ */
+        (function setupGlobalTooltips() {
+            const tip = document.getElementById('global-tooltip');
+            if (!tip) return;
+
+            let showTimer = null;
+
+            function showTooltip(target) {
+                const text = target.getAttribute('data-tip');
+                if (!text) return;
+
+                tip.textContent = text;
+                tip.classList.remove('visible');
+                tip.style.left = '-9999px';
+                tip.style.top = '-9999px';
+
+                const tw = tip.offsetWidth;
+                const th = tip.offsetHeight;
+
+                const rect = target.getBoundingClientRect();
+                const pad = 12;
+
+                let left = rect.left + rect.width / 2 - tw / 2;
+                let top  = rect.top - th - pad;
+
+                if (left < pad) left = pad;
+                if (left + tw > window.innerWidth - pad) {
+                    left = window.innerWidth - tw - pad;
+                }
+
+                let arrowOnBottom = true;
+                if (top < pad) {
+                    top = rect.bottom + pad;
+                    arrowOnBottom = false;
+                }
+
+                tip.style.left = left + 'px';
+                tip.style.top  = top + 'px';
+
+                const tokenCenterX = rect.left + rect.width / 2;
+                let arrowLeft = tokenCenterX - left - 5;
+                arrowLeft = Math.max(12, Math.min(tw - 22, arrowLeft));
+
+                tip.style.setProperty('--arrow-left', arrowLeft + 'px');
+                tip.style.setProperty('--arrow-side', arrowOnBottom ? 'bottom' : 'top');
+
+                tip.classList.add('visible');
+                tip.setAttribute('aria-hidden', 'false');
+            }
+
+            function hideTooltip() {
+                tip.classList.remove('visible');
+                tip.setAttribute('aria-hidden', 'true');
+            }
+
+            document.addEventListener('mouseover', (e) => {
+                const target = e.target.closest('.tok[data-tip]');
+                if (!target) return;
+                clearTimeout(showTimer);
+                showTimer = setTimeout(() => showTooltip(target), 60);
+            });
+
+            document.addEventListener('mouseout', (e) => {
+                const target = e.target.closest('.tok[data-tip]');
+                if (!target) return;
+                clearTimeout(showTimer);
+                hideTooltip();
+            });
+
+            window.addEventListener('scroll', hideTooltip, { passive: true });
+            window.addEventListener('resize', hideTooltip);
+        })();
+    </script>
+</body>
+</html>

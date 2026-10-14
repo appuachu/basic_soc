@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+{% block title %}Windows Log Analysis{% endblock %}
+
+{% block content %}
+
+<section class="hero">
+    <h1>🪟 Windows Log Analysis</h1>
+    <p>Event Viewer, wevtutil, Get-WinEvent, Sysmon, malware scanning, and WiFi recovery.</p>
+</section>
+
+<!-- ============ INTRO ============ -->
+<section class="section">
+    <h2 class="section-title">What Are Windows Event Logs?</h2>
+    <div class="info-card">
+        <p class="lead">{{ intro.what }}</p>
+        <h3 class="sub-title">Why it matters for SOC analysts</h3>
+        <ul class="bullet-list">
+            {% for item in intro.why_soc %}<li>{{ item }}</li>{% endfor %}
+        </ul>
+    </div>
+</section>
+
+<!-- ============ WHERE LOGS LIVE ============ -->
+<section class="section dark">
+    <h2 class="section-title">🗂️ Where Windows Logs Live</h2>
+    <div class="table-grid">
+        <div class="info-tile">
+            <h4>📁 File Location</h4>
+            <p><code>C:\Windows\System32\winevt\Logs\</code></p>
+            <p class="tile-meta"><strong>Format:</strong> <span class="tok" data-tip="Windows XML Event Log — binary format, readable by Event Viewer, wevtutil, or Get-WinEvent.">.evtx</span></p>
+            <p class="tile-meta"><strong>Read with:</strong> Event Viewer, wevtutil, Get-WinEvent</p>
+        </div>
+        <div class="info-tile">
+            <h4>📋 Core Channels</h4>
+            <p class="tile-meta"><strong><span class="tok" data-tip="Windows log channel: OS events, driver loads, service start/stop.">System</span>:</strong> OS events, drivers, services</p>
+            <p class="tile-meta"><strong><span class="tok" data-tip="Windows log channel: user applications, installers, crashes.">Application</span>:</strong> App crashes, installers</p>
+            <p class="tile-meta"><strong><span class="tok" data-tip="Windows log channel: logons, privilege use, audit events.">Security</span>:</strong> Logons, privilege use, audit</p>
+            <p class="tile-meta"><strong><span class="tok" data-tip="Windows log channel: OS install/upgrade events.">Setup</span>:</strong> OS installs/upgrades</p>
+        </div>
+        <div class="info-tile">
+            <h4>🛡️ Security Channel</h4>
+            <p class="tile-meta"><strong><span class="tok" data-tip="Failed logon — wrong password, unknown user, or disabled account.">4625</span>:</strong> Failed logon</p>
+            <p class="tile-meta"><strong><span class="tok" data-tip="Successful logon — records how, from where, and with what logon type.">4624</span>:</strong> Successful logon</p>
+            <p class="tile-meta"><strong><span class="tok" data-tip="Special privileges assigned — fires when an admin-level account logs in.">4672</span>:</strong> Special privileges</p>
+            <p class="tile-meta"><strong><span class="tok" data-tip="Security log cleared — no legitimate reason, always an active incident.">1102</span>:</strong> Log cleared</p>
+        </div>
+    </div>
+</section>
+
+<!-- ============ LOGON TYPES — NEW SECTION ============ -->
+<section class="section">
+    <h2 class="section-title">🔢 Logon Types — What "Type 3" Actually Means</h2>
+    <p class="section-desc">
+        Every successful logon (Event <span class="tok" data-tip="Successful logon — every time a user logs in, this event records how, from where, and with what logon type.">4624</span>)
+        records a number called <span class="tok" data-tip="Field in Event 4624 that tells you HOW the logon happened. Numbers 2-11 each mean something different.">LogonType</span>.
+        This number tells you HOW the user authenticated. Knowing this is critical — <span class="tok" data-tip="REMOTE INTERACTIVE — RDP. Same as being at the physical console but over the network. Anomalous IPs here mean lateral movement or unauthorized access.">Type 10</span>
+        from an unfamiliar IP is a red flag. Hover each type to see what it means.
+    </p>
+
+    <div class="table-grid">
+        <div class="info-tile">
+            <h4><span class="tok" data-tip="INTERACTIVE logon — user typed credentials at a physical keyboard attached to this machine.">Type 2</span></h4>
+            <p>Interactive — user is physically at the keyboard.</p>
+            <p class="tile-meta"><strong>Common for:</strong> normal workstation logins</p>
+            <p class="tile-meta"><strong>Suspicious if:</strong> seen on a server where no one should be at the console</p>
+        </div>
+
+        <div class="info-tile">
+            <h4><span class="tok" data-tip="NETWORK logon — authenticated over the network to access a share, printer, or resource. Password is NOT cached on this machine.">Type 3</span></h4>
+            <p>Network — user accessed a shared resource remotely.</p>
+            <p class="tile-meta"><strong>Common for:</strong> file shares, mapped drives, web app auth</p>
+            <p class="tile-meta"><strong>Suspicious if:</strong> many Type 3 logons across many hosts = lateral movement</p>
+        </div>
+
+        <div class="info-tile">
+            <h4><span class="tok" data-tip="BATCH logon — a scheduled task ran under a user account.">Type 4</span></h4>
+            <p>Batch — scheduled task executed.</p>
+            <p class="tile-meta"><strong>Common for:</strong> cron-equivalent scheduled jobs</p>
+            <p class="tile-meta"><strong>Suspicious if:</strong> unexpected scheduled tasks show up (persistence)</p>
+        </div>
+
+        <div class="info-tile">
+            <h4><span class="tok" data-tip="SERVICE logon — a Windows service started under that account.">Type 5</span></h4>
+            <p>Service — a service process logged in.</p>
+            <p class="tile-meta"><strong>Common for:</strong> SQL Server, IIS, backup agents</p>
+            <p class="tile-meta"><strong>Suspicious if:</strong> a normal user account used as a service</p>
+        </div>
+
+        <div class="info-tile">
+            <h4><span class="tok" data-tip="UNLOCK logon — user unlocked their workstation with a password. Similar to a fresh Type 2 but only after lock.">Type 7</span></h4>
+            <p>Unlock — user unlocked their workstation.</p>
+            <p class="tile-meta"><strong>Common for:</strong> returning to a locked machine</p>
+            <p class="tile-meta"><strong>Suspicious if:</strong> off-hours unlock on a shared machine</p>
+        </div>
+
+        <div class="info-tile">
+            <h4><span class="tok" data-tip="NETWORK CLEARTEXT logon — credentials sent over the network in plaintext. Extremely rare on modern Windows and highly suspicious.">Type 8</span></h4>
+            <p>NetworkCleartext — plaintext credentials over the wire.</p>
+            <p class="tile-meta"><strong>Common for:</strong> IIS basic auth, legacy apps</p>
+            <p class="tile-meta"><strong>Suspicious if:</strong> anything else — investigate the source</p>
+        </div>
+
+        <div class="info-tile">
+            <h4><span class="tok" data-tip="NEW CREDENTIALS logon — runas /netonly. Local session is normal but network auth uses different credentials.">Type 9</span></h4>
+            <p>NewCredentials — runas /netonly.</p>
+            <p class="tile-meta"><strong>Common for:</strong> admins using alternate creds for one app</p>
+            <p class="tile-meta"><strong>Suspicious if:</strong> non-admin account doing it</p>
+        </div>
+
+        <div class="info-tile">
+            <h4><span class="tok" data-tip="REMOTE INTERACTIVE — RDP. Being at the console but over the network. Watch for unusual source IPs — this is the #1 lateral movement indicator.">Type 10</span></h4>
+            <p>RemoteInteractive — RDP session.</p>
+            <p class="tile-meta"><strong>Common for:</strong> admins connecting to servers</p>
+            <p class="tile-meta"><strong>Suspicious if:</strong> unusual source IP or unexpected target host</p>
+        </div>
+
+        <div class="info-tile">
+            <h4><span class="tok" data-tip="CACHED INTERACTIVE — user logged in with cached credentials because the domain controller was unreachable. Common on laptops outside the office.">Type 11</span></h4>
+            <p>CachedInteractive — offline logon with cached creds.</p>
+            <p class="tile-meta"><strong>Common for:</strong> laptops off-VPN</p>
+            <p class="tile-meta"><strong>Suspicious if:</strong> seen on servers (servers shouldn't cache)</p>
+        </div>
+    </div>
+</section>
+
+<!-- ============ COMMAND LINE ============ -->
+<section class="section dark">
+    <h2 class="section-title">⌨️ Command Line Access</h2>
+    {% for cmd in commands if cmd.category == 'Command Line Access' %}
+    <div class="cmd-card" id="card-{{ cmd.id }}"
+         style="border-left-color: {{ cmd.color }};"
+         onclick='openItem("{{ cmd.id }}")'>
+        <div class="cmd-line">
+            {% for tok in cmd.tokens %}
+                {% if tok.tip %}<span class="tok" data-tip="{{ tok.tip }}">{{ tok.text }}</span>
+                {% else %}<span class="tok-plain">{{ tok.text }}</span>{% endif %}
+            {% endfor %}
+        </div>
+        <p class="cmd-desc">{{ cmd.desc }}</p>
+            
+    </div>
+    {% endfor %}
+</section>
+
+<!-- ============ EVENT VIEWER GUI ============ -->
+<section class="section">
+    <h2 class="section-title">🖥️ Event Viewer GUI</h2>
+    {% for cmd in commands if cmd.category == 'Event Viewer GUI' %}
+    <div class="cmd-card" id="card-{{ cmd.id }}"
+         style="border-left-color: {{ cmd.color }};"
+         onclick='openItem("{{ cmd.id }}")'>
+        <div class="cmd-line">
+            {% for tok in cmd.tokens %}
+                {% if tok.tip %}<span class="tok" data-tip="{{ tok.tip }}">{{ tok.text }}</span>
+                {% else %}<span class="tok-plain">{{ tok.text }}</span>{% endif %}
+            {% endfor %}
+        </div>
+        <p class="cmd-desc">{{ cmd.desc }}</p>
+
+    </div>
+    {% endfor %}
+</section>
+
+<!-- ============ SYSMON ============ -->
+<section class="section dark">
+    <h2 class="section-title">🔍 Sysmon</h2>
+    <p class="section-desc">
+        Sysmon extends Windows event logging with high-fidelity events.
+        Sysmon Event 1 logs process creates (<span class="tok" data-tip="Sysmon Event 1 — process created. Full command line, parent process, hashes.">ID 1</span>),
+        Event 3 logs network connections (<span class="tok" data-tip="Sysmon Event 3 — network connection. Records which process connected to which IP.">ID 3</span>),
+        Event 10 logs process access (<span class="tok" data-tip="Sysmon Event 10 — process access. LSASS access here = credential theft.">ID 10</span>),
+        Event 11 logs file creations (<span class="tok" data-tip="Sysmon Event 11 — file created. Catches dropped payloads and ransomware.">ID 11</span>).
+    </p>
+    {% for cmd in commands if cmd.category == 'Sysmon' %}
+    <div class="cmd-card" id="card-{{ cmd.id }}"
+         style="border-left-color: {{ cmd.color }};"
+         onclick='openItem("{{ cmd.id }}")'>
+        <div class="cmd-line">
+            {% for tok in cmd.tokens %}
+                {% if tok.tip %}<span class="tok" data-tip="{{ tok.tip }}">{{ tok.text }}</span>
+                {% else %}<span class="tok-plain">{{ tok.text }}</span>{% endif %}
+            {% endfor %}
+        </div>
+        <p class="cmd-desc">{{ cmd.desc }}</p>
+
+    </div>
+    {% endfor %}
+</section>
+
+<!-- ============ MALWARE SCANNING ============ -->
+<section class="section">
+    <h2 class="section-title">🛡️ Malware Scanning</h2>
+    {% for cmd in commands if cmd.category == 'Malware Scanning' %}
+    <div class="cmd-card" id="card-{{ cmd.id }}"
+         style="border-left-color: {{ cmd.color }};"
+         onclick='openItem("{{ cmd.id }}")'>
+        <div class="cmd-line">
+            {% for tok in cmd.tokens %}
+                {% if tok.tip %}<span class="tok" data-tip="{{ tok.tip }}">{{ tok.text }}</span>
+                {% else %}<span class="tok-plain">{{ tok.text }}</span>{% endif %}
+            {% endfor %}
+        </div>
+        <p class="cmd-desc">{{ cmd.desc }}</p>
+
+    </div>
+    {% endfor %}
+</section>
+
+<!-- ============ WIFI PASSWORD RECOVERY ============ -->
+<section class="section dark">
+    <h2 class="section-title">📶 WiFi Password Recovery</h2>
+    {% for cmd in commands if cmd.category == 'WiFi Password Recovery' %}
+    <div class="cmd-card" id="card-{{ cmd.id }}"
+         style="border-left-color: {{ cmd.color }};"
+         onclick='openItem("{{ cmd.id }}")'>
+        <div class="cmd-line">
+            {% for tok in cmd.tokens %}
+                {% if tok.tip %}<span class="tok" data-tip="{{ tok.tip }}">{{ tok.text }}</span>
+                {% else %}<span class="tok-plain">{{ tok.text }}</span>{% endif %}
+            {% endfor %}
+        </div>
+        <p class="cmd-desc">{{ cmd.desc }}</p>
+
+    </div>
+    {% endfor %}
+</section>
+
+<!-- ============ SCENARIOS ============ -->
+<section class="section">
+    <h2 class="section-title">Real Attack Scenarios</h2>
+    {% for sc in scenarios %}
+    <div class="scenario-card" id="{{ sc.id }}" style="border-left: 4px solid {{ sc.color }};">
+        <div class="scenario-header">
+            <span class="scenario-icon">{{ sc.icon }}</span>
+            <h3>{{ sc.title }}</h3>
+        </div>
+        <p class="scenario-situation">{{ sc.situation }}</p>
+
+        <h4 class="scenario-h4">🔍 Detection</h4>
+        <div class="cmd-line">
+            {% for tok in sc.detection_tokens %}
+                {% if tok.tip %}<span class="tok" data-tip="{{ tok.tip }}">{{ tok.text }}</span>
+                {% else %}<span class="tok-plain">{{ tok.text }}</span>{% endif %}
+            {% endfor %}
+        </div>
+        <pre class="output-block">{{ sc.detection_output }}</pre>
+        <p class="scenario-analysis"><strong>Analysis:</strong> {{ sc.analysis }}</p>
+
+        <h4 class="scenario-h4">🛠️ Response</h4>
+        {% for r in sc.response_cmds %}<pre class="output-block">$ {{ r }}</pre>{% endfor %}
+
+        <h4 class="scenario-h4">✅ After Action</h4>
+        <p>{{ sc.post_action }}</p>
+    </div>
+    {% endfor %}
+</section>
+
+<script>
+    window.__ITEMS = {{ commands|tojson }};
+</script>
+{% endblock %}

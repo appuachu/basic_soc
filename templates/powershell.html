@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}PowerShell for SOC{% endblock %}
+
+{% block content %}
+
+<section class="module-hero">
+    <div class="module-hero-badge">💻 Module</div>
+    <h1>PowerShell for SOC</h1>
+    <p>Investigate endpoints, parse event logs, hunt threats — all from one shell.</p>
+</section>
+
+<section class="section">
+    <div class="info-card">
+        <div class="info-card-title">What Is PowerShell?</div>
+        <p class="lead">{{ intro.what }}</p>
+        <div class="sub-title">Why it matters for SOC analysts</div>
+        <ul class="bullet-list">
+            {% for item in intro.why_soc %}<li>{{ item }}</li>{% endfor %}
+        </ul>
+    </div>
+</section>
+
+{% set cat_icons = {
+    'Fundamentals': '⚡',
+    'Event Log Analysis': '📋',
+    'Network Investigation': '🌐',
+    'File Hashing': '🔐',
+    'Persistence Hunting': '🔒',
+    'Advanced Detection': '⚠️',
+    'Real SOC Scenarios': '🎯'
+} %}
+
+{% set categories = ['Fundamentals', 'Event Log Analysis', 'Network Investigation',
+                     'File Hashing', 'Persistence Hunting', 'Advanced Detection',
+                     'Real SOC Scenarios'] %}
+
+{% for cat in categories %}
+<section class="section {% if loop.index is even %}dark{% endif %}">
+    <h2 class="section-title">{{ cat_icons[cat] }} {{ cat }}</h2>
+    <div class="cmd-grid">
+        {% for cmd in commands if cmd.category == cat %}
+        <div class="cmd-card" id="card-{{ cmd.id }}"
+             style="border-left-color: {{ cmd.color }};"
+             onclick='openItem("{{ cmd.id }}")'>
+            <div class="cmd-line">
+                {% for tok in cmd.tokens %}
+                    {% if tok.tip %}<span class="tok" data-tip="{{ tok.tip }}">{{ tok.text }}</span>
+                    {% else %}<span class="tok-plain">{{ tok.text }}</span>{% endif %}
+                {% endfor %}
+            </div>
+            <p class="cmd-desc">{{ cmd.desc }}</p>
+            
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endfor %}
+
+<section class="section dark">
+    <h2 class="section-title">🎬 Real Attack Scenarios</h2>
+    {% for sc in scenarios %}
+    <div class="scenario-card" id="{{ sc.id }}" style="border-left: 4px solid {{ sc.color }};">
+        <div class="scenario-header">
+            <span class="scenario-icon">{{ sc.icon }}</span>
+            <h3>{{ sc.title }}</h3>
+        </div>
+        <p class="scenario-situation">{{ sc.situation }}</p>
+
+        <h4 class="scenario-h4">🔍 Detection</h4>
+        <div class="cmd-line">
+            {% for tok in sc.detection_tokens %}
+                {% if tok.tip %}<span class="tok" data-tip="{{ tok.tip }}">{{ tok.text }}</span>
+                {% else %}<span class="tok-plain">{{ tok.text }}</span>{% endif %}
+            {% endfor %}
+        </div>
+        <pre class="output-block">{{ sc.detection_output }}</pre>
+        <p class="scenario-analysis"><strong>Analysis:</strong> {{ sc.analysis }}</p>
+
+        <h4 class="scenario-h4">🛠️ Response</h4>
+        {% for r in sc.response_cmds %}<pre class="output-block">$ {{ r }}</pre>{% endfor %}
+
+        <h4 class="scenario-h4">✅ After Action</h4>
+        <p>{{ sc.post_action }}</p>
+    </div>
+    {% endfor %}
+</section>
+
+<script>
+    window.__ITEMS = {{ commands|tojson }};
+</script>
+{% endblock %}
